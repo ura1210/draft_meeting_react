@@ -1,12 +1,15 @@
-const express = require('express');
+const express = require('express')
+const path = require('path');
 const app = express();
 const http = require('http').Server(app);
 const bodyParser = require('body-parser');
 const io = require('socket.io')(http);
-const PORT = process.env.PORT || 7000;
+const PORT = process.env.PORT || 3001;
 const events = require('events');
 const eventEmitter = new events.EventEmitter();
 eventEmitter.setMaxListeners(50)
+
+
 
 let socetIDtoInfo = {};
 let roomIDtoDoraftedList = {};
@@ -14,24 +17,16 @@ let roomIDtoReady = {};
 let roomIDtoClientNum = [];
 let draftChoiceTemp = [];
 
-app.use(json());
-app.use(urlencoded({ extended: false }));
 
-app.set("view engine", "ejs");
+app.use(express.static(path.join(__dirname, './build')));
 
-app.use(express.static(__dirname + '/views/css'));
-app.use(express.static(__dirname + '/views/js'));
-
-http.listen(PORT, () => {
-    console.log(`server listening. Port: ${PORT}`);
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname,'./build/index.html'));
 });
 
-app.get('/', (req, res) => {
-    res.render("./pages/index.ejs", {
-        msg: ""
-    });
-
-});
+app.listen(PORT, () => {
+    console.log(`listening on *:${PORT}`);
+})
 
 /********************** room遷移時*************************/
 app.post('/room', function (req, res) {
@@ -144,9 +139,9 @@ io.on('connection', function (socket) {
                     return self.indexOf(val) === self.lastIndexOf(val);
                 });
 
-                for (const of b1) {
-                    draftStatus[draftsChoiceList.indexOf(b)] = "今回決定";
-                }
+                /* for (const of b1) {
+                     draftStatus[draftsChoiceList.indexOf(b)] = "今回決定";
+                 }*/
 
 
 
