@@ -1,213 +1,29 @@
-const express = require('express')
-const path = require('path');
+const express = require("express");
 const app = express();
-const http = require('http').Server(app);
-const bodyParser = require('body-parser');
-const io = require('socket.io')(http);
+const http = require("http");
+const socketIo  = require('socket.io');
+const path = require('path');
 const PORT = process.env.PORT || 3001;
+const server = http.createServer(app);
+const io = socketIo(server).listen(server);
 const events = require('events');
 const eventEmitter = new events.EventEmitter();
 eventEmitter.setMaxListeners(50)
 
+app.use(express.static(path.join(__dirname, './public')));
 
-
-let socetIDtoInfo = {};
-let roomIDtoDoraftedList = {};
-let roomIDtoReady = {};
-let roomIDtoClientNum = [];
-let draftChoiceTemp = [];
-
-
-app.use(express.static(path.join(__dirname, './build')));
-
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname,'./build/index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname,'./public/index.html'));
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`listening on *:${PORT}`);
 })
 
-/********************** room遷移時*************************/
-app.post('/room', function (req, res) {
-    if (req.body.drafted !== void 0) {
-        //host
-        io.of('/').in(req.body.id).clients(function (error, clients) {
-            if (roomIDtoDoraftedList[req.body.id] !== void 0) {
-                //使用中
-                res.render("./pages/index.ejs", {
-                    msg: "同名のIDの部屋が存在します。"
-                });
-            } else {
-                //OK
-                res.render("./pages/room.ejs", {
-                    name: req.body.name,
-                    id: req.body.id,
-                    title: req.body.title,
-                    end: req.body.end
-                });
-                roomIDtoDoraftedList[req.body.id] = {
-                    list: createDoraftedListHTML(req.body.drafted),
-                    status: "wait",
-                    title: req.body.title,
-                    end: req.body.end
-                }
-            }
-        });
+io.on("connection", (socket) => {
+    console.log("conect");
+  });
 
-    } else {
-        //guest
-        io.of('/').in(req.body.id).clients(function (error, clients) {
-            if (roomIDtoDoraftedList[req.body.id] === void 0 || roomIDtoDoraftedList[req.body.id].status != "wait") {
-                res.render("./pages/index.ejs", {
-                    msg: "部屋が存在しないか、既に進行中です。"
-                });
-                return;
-            }
-            res.render("./pages/room.ejs", {
-                name: req.body.name,
-                id: req.body.id,
-                title: req.body.title,
-                end: req.body.end
-            });
-        });
-    }
-
-    io.once('connection', function (socket) {
-        socket.join(req.body.id);
-        io.to(socket.id).emit('create_draftedList', roomIDtoDoraftedList[req.body.id]);
-        socetIDtoInfo[socket.id] = {
-            name: req.body.name,
-            id: req.body.id
-        }
-        io.of('/').in(req.body.id).clients(function (error, clients) {
-            io.to(socetIDtoInfo[socket.id].id).emit('create_member', createMemberListHTML(clients), createMemberListHTML2(clients));
-
-            if (clients.length === 1) {
-                io.to(socket.id).emit('host');
-            }
-        });
-        io.to(socket.id).emit('create_draftedList', roomIDtoDoraftedList[req.body.id]);
-
-        socket.on('exit', () => {
-            io.of('/').in(socetIDtoInfo[socket.id].id).clients(function (error, clients) {
-                socket.leave(socetIDtoInfo[socket.id].id);
-                if (clients.length === 1) {
-                    roomIDtoDoraftedList[socetIDtoInfo[socket.id].id] = undefined;
-                    socetIDtoInfo[socket.id] = undefined;
-                }
-                socket.disconnect(socket.id);
-            });
-        });
-        socket.on('end', () => {
-            roomIDtoDoraftedList[socetIDtoInfo[socket.id].id] = undefined;
-        });
-
-    });
-});
-
-/***************************************************/
-//接続
-io.on('connection', function (socket) {
-    socket.on('ready', () => {
-        const roomID = socetIDtoInfo[socket.id].id;
-        roomIDtoDoraftedList[roomID].status = "start";
-        roomIDtoReady[roomID] = 0;
-        io.to(roomID).emit('start');
-        io.of('/').in(roomID).clients((error, clients) => {
-            roomIDtoClientNum[roomID] = clients.length;
-        })
-    });
-    socket.on('nomination', draftChoice => {
-        const roomID = socetIDtoInfo[socket.id].id;
-        roomIDtoReady[roomID]++;
-        io.of('/').in(roomID).clients((error, clients) => {
-            draftChoiceTemp[socket.id] = draftChoice;
-            if (roomIDtoClientNum[roomID] == roomIDtoReady[roomID]) {
-                //全員選択した
-                roomIDtoReady[roomID] = 0;
-
-                let draftsChoiceList = []
-                let draftStatus = []
-                for (let i = 0; i < clients.length; i++) {
-                    draftsChoiceList[i] = draftChoiceTemp[clients[i]]
-                    draftStatus[i] = "決定済み";
-                }
-
-                //競合なしなら決定
-                let b1 = draftsChoiceList.filter((val, idx, self) => {
-                    return self.indexOf(val) === self.lastIndexOf(val);
-                });
-
-                /* for (const of b1) {
-                     draftStatus[draftsChoiceList.indexOf(b)] = "今回決定";
-                 }*/
-
-
-
-                //競合
-                let clientInfo = [];
-                for (let i = 0; i < draftStatus.length; i++) {
-                    clientInfo[i] = (
-                        {
-                            name: socetIDtoInfo[clients[i]].name,
-                            socketID: clients[i],
-                            draft: draftsChoiceList[i]
-                        }
-                    );
-                }
-
-                //競合してる配列
-                let d = draftsChoiceList.filter(function (x, i, self) {
-                    return self.indexOf(x) === i && i !== self.lastIndexOf(x);
-                });
-
-                for (const a of d) {
-                    const result = draftsChoiceList.reduce(function (acc, value, i) {
-                        if (value === a) {
-                            acc.push(i);
-                        }
-                        return acc;
-                    }, [])
-                    const random = result[Math.floor(Math.random() * result.length)];
-                    draftStatus[random] = "今回決定";
-                }
-
-                for (let i = 0; i < draftStatus.length; i++) {
-                    draftStatus[i] = draftStatus[i] !== "今回決定" ? "再指名" : draftStatus[i];
-                }
-
-                roomIDtoClientNum[socetIDtoInfo[socket.id].id] = draftStatus.filter(x => {
-                    return x === "再指名"
-                }).length;
-
-                for (let i = 0; i < draftStatus.length; i++) {
-                    io.to(socetIDtoInfo[socket.id].id).emit('doraftedAlready', draftsChoiceList[i]);
-                    if (roomIDtoClientNum[socetIDtoInfo[socket.id].id] === 0) {
-                        //一巡終了
-                        if (i === draftStatus.length - 1) {
-                            roomIDtoClientNum[socetIDtoInfo[socket.id].id] = clients.length;
-                        }
-                        if (draftStatus[i] === "今回決定") {
-                            io.to(clientInfo[i].socketID).emit('determination', clients.length, draftsChoiceList, clientInfo);
-                        } else {
-                            io.to(clientInfo[i].socketID).emit('already', clients.length, draftsChoiceList, clientInfo);
-                        }
-                    } else {
-                        if (draftStatus[i] === "今回決定") {
-                            io.to(clientInfo[i].socketID).emit('determination2', clients.length, draftsChoiceList, clientInfo);
-                        } else if (draftStatus[i] === "再指名") {
-                            io.to(clientInfo[i].socketID).emit('reDoraft2', clients.length, draftsChoiceList, clientInfo);
-                        } else {
-                            io.to(clientInfo[i].socketID).emit('already2', clients.length, draftsChoiceList, clientInfo);
-                        }
-                    }
-                }
-
-            }
-        });
-    });
-});
 
 
 const createDoraftedListHTML = doraftedList => {
