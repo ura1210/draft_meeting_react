@@ -32,28 +32,54 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const RoomForm = () => {
-  const socket = io();
+const RoomForm = (props) => {
+  const socket = props.socket;
+  const [name, setName] = useState("");
   const [roomID, setRoomID] = useState("");
+  const [title, setTitle] = useState("ドラフト会議");
+  const [draftLists, setDraftLists] = useState();
   const [endOrder, setEndOrder] = useState("");
+
+  const msg = useState("msg");
 
   useEffect(() => {
     socket.on("connect", () => {
       console.log("connect");
     });
+    socket.on("roomCreate", () => {
+      props.setIsEnter(true);
+      const info = {
+        name,
+        roomID,
+        title,
+        draftLists,
+        endOrder,
+      };
+      props.setRoomInfo(info);
+    });
   }, []);
 
-  const handleChange = (event) => {
-    setEndOrder(event.target.value);
-  };
-
   const create = () => {
-    console.log(roomID);
-    socket.emit("create", roomID);
+    const createInfo = {
+      name,
+      roomID,
+      title,
+      draftLists,
+      endOrder,
+    };
+    socket.emit("create", createInfo);
   };
 
-  const msg = useState("msg");
+  const enter = () => {
+    const enterInfo = {
+      name,
+      roomID,
+    };
+    socket.emit("enter", enterInfo);
+  };
+
   const classes = useStyles();
+
   return (
     <>
       <Container component="main" maxWidth="md">
@@ -74,6 +100,7 @@ const RoomForm = () => {
                   label="ニックネーム"
                   name="name"
                   autoComplete="off"
+                  onChange={(v) => setName(v.target.value)}
                 />
                 <TextField
                   variant="outlined"
@@ -84,7 +111,7 @@ const RoomForm = () => {
                   label="部屋ID"
                   id="id"
                   autoComplete="off"
-                  onChange={(v) => setRoomID(v)}
+                  onChange={(v) => setRoomID(v.target.value)}
                 />
                 <TextField
                   variant="outlined"
@@ -94,6 +121,7 @@ const RoomForm = () => {
                   label="タイトル"
                   id="title"
                   autoComplete="off"
+                  onChange={(v) => setTitle(v.target.value)}
                 />
                 <TextField
                   variant="outlined"
@@ -102,6 +130,10 @@ const RoomForm = () => {
                   multiline
                   fullWidth
                   rows={4}
+                  onChange={(v) => {
+                    const list = v.target.value.split(/\n/);
+                    setDraftLists(list);
+                  }}
                 />
                 <FormControl variant="outlined" className={classes.formControl}>
                   <InputLabel id="demo-simple-select-outlined-label">
@@ -111,7 +143,7 @@ const RoomForm = () => {
                     labelId="demo-simple-select-outlined-label"
                     id="demo-simple-select-outlined"
                     value={endOrder}
-                    onChange={handleChange}
+                    onChange={(v) => setEndOrder(v.target.value)}
                     label="終了巡目数"
                   >
                     {[...Array(10)]
@@ -157,11 +189,11 @@ const RoomForm = () => {
                   autoComplete="off"
                 />
                 <Button
-                  type="submit"
                   fullWidth
                   variant="contained"
                   color="primary"
                   className={classes.submit}
+                  onClick={enter}
                 >
                   入室
                 </Button>
