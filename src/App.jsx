@@ -10,7 +10,13 @@ const socket = io();
 
 function RoomContainer(props) {
   if (props.isEnter) {
-    return <Room socket={socket} roomInfo={props.roomInfo} />;
+    return (
+      <Room
+        socket={socket}
+        setIsEnter={props.setIsEnter}
+        roomInfo={props.roomInfo}
+      />
+    );
   }
   return <RoomForm socket={socket} setIsEnter={props.setIsEnter} />;
 }

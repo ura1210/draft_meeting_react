@@ -39,13 +39,13 @@ const RoomForm = (props) => {
   const [title, setTitle] = useState("ドラフト会議");
   const [draftLists, setDraftLists] = useState();
   const [endOrder, setEndOrder] = useState("");
-
-  const msg = useState("msg");
+  const [msg, setMsg] = useState("メッセージ");
 
   useEffect(() => {
     socket.on("connect", () => {
       console.log("connect");
     });
+
     socket.on("roomCreate", () => {
       props.setIsEnter(true);
       const info = {
@@ -56,6 +56,36 @@ const RoomForm = (props) => {
         endOrder,
       };
       props.setRoomInfo(info);
+    });
+
+    socket.on("DuplicateID", () => {
+      setMsg("既に存在する部屋IDです。");
+    });
+
+    socket.on("roomEnter", (roomInfo) => {
+      props.setIsEnter(true);
+      const info = {
+        name,
+        roomID,
+        title: roomInfo.title,
+        draftLists: roomInfo.draftLists,
+        endOrder: roomInfo.endOrder,
+      };
+      props.setRoomInfo(info);
+    });
+
+    socket.on("roomEnterError", (num) => {
+      switch (num) {
+        case 1:
+          setMsg("既に進行中の部屋IDです。");
+          break;
+        case 2:
+          setMsg("既に存在する部屋IDです。");
+          break;
+        default:
+          setMsg("予期せぬエラーです。");
+          break;
+      }
     });
   }, []);
 
@@ -201,6 +231,14 @@ const RoomForm = (props) => {
             </Grid>
           </form>
         </div>
+        <Typography
+          component="h1"
+          variant="caption"
+          align="center"
+          color="error"
+        >
+          {msg}
+        </Typography>
       </Container>
     </>
   );

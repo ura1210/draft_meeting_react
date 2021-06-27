@@ -40,18 +40,25 @@ const Room = (props) => {
   const title = props.roomInfo.title;
   const draftLists = props.roomInfo.draftLists;
   const endOrder = props.roomInfo.endOrder;
+  const [isStart, setIsStart] = useState(false);
+  const [isNomination, setIsNomination] = useState(false);
 
   const [selected, setSelected] = useState();
   const [users, setUsers] = useState([name]);
 
   useEffect(() => {
-    socket.on("roomCreate", () => {});
+    socket.on("start", () => {});
   }, []);
 
   const classes = useStyles();
 
-  const clickDominationTarget = (value) => () => {
+  const clickNominationTarget = (value) => () => {
     setSelected(value);
+  };
+
+  const clickNomination = () => {
+    setIsNomination(true);
+    socket.emit("nomination", selected, roomID);
   };
 
   return (
@@ -110,18 +117,28 @@ const Room = (props) => {
           </Grid>
           <Grid item xs={6}>
             <Button
-              type="submit"
+              disabled={isStart}
               variant="contained"
               color="primary"
               className={classes.submit}
+              onClick={() => {
+                if (window.confirm("開始します。よろしいですか？")) {
+                  socket.emit("start", roomID);
+                }
+              }}
             >
               スタート
             </Button>
             <Button
-              type="submit"
               variant="contained"
               color="secondary"
               className={classes.submit}
+              onClick={() => {
+                if (window.confirm("退出します。よろしいですか？")) {
+                  socket.emit("exit", roomID);
+                  props.setIsEnter(false);
+                }
+              }}
             >
               退出
             </Button>
@@ -161,7 +178,7 @@ const Room = (props) => {
                       key={i}
                       role={undefined}
                       button
-                      onClick={clickDominationTarget(labelId)}
+                      onClick={clickNominationTarget(labelId)}
                       className={`${classes.draftList} ${
                         labelId === selected ? classes.value : ""
                       }`}
@@ -174,13 +191,22 @@ const Room = (props) => {
             </List>
             <Grid item xs={12}>
               <Button
-                type="submit"
+                disabled={isStart && isNomination}
                 variant="contained"
                 color="secondary"
                 className={classes.submit}
+                onClick={clickNomination()}
               >
                 指名
               </Button>
+              <Typography
+                variant="h5"
+                align="left"
+                color="textSecondary"
+                component="p"
+              >
+                めっせいじ
+              </Typography>
             </Grid>
           </Grid>
           <Grid item xs={12}>
