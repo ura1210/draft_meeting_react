@@ -39,10 +39,11 @@ io.on("connection", (socket) => {
 
   socket.on("enter", (enterInfo) => {
     if (roomInfo.has(enterInfo.roomID)) {
-      socket.join(enterInfo.roomID);
       if (roomInfo.get(enterInfo.roomID).status !== "wait") {
         io.to(socket.id).emit("roomEnterError", 1);
+        return;
       }
+      socket.join(enterInfo.roomID);
       io.to(socket.id).emit("roomEnter", roomInfo.get(enterInfo.roomID));
     } else {
       io.to(socket.id).emit("roomEnterError", 2);
@@ -112,21 +113,18 @@ io.on("connection", (socket) => {
         }
         return num;
       });
-      eru gurasu
-      3 2
-      2 1
 
       const mape = new Map();
-     conflictNum.forEach((e) =>
+      conflictNum.forEach((e) =>
         mape.set(e, Math.floor(Math.random() * e) + 1)
       );
-     
+
       for (let [key, value] of roomInfoNow.draftChoice) {
-        const n = 0;
-        conflict.find((e) => {
+        let n = 0;
+        conflict.forEach((e) => {
           if (value === e) {
             n++;
-            if(mape.get(e)===n){
+            if (mape.get(e) === n) {
               roomInfoNow.draftStatus.set(key, "今回決定");
             }
           }
@@ -134,17 +132,15 @@ io.on("connection", (socket) => {
       }
 
       for (let [key, value] of roomInfoNow.draftStatus) {
-        if(value==="今回決定" && value!=="再指名" ){
+        if (value === "今回決定" && value !== "再指名") {
           roomInfoNow.draftStatus.set(key, "再指名");
         }
       }
 
       //終了
-      roomInfoNow.draftStatus.forEach((value, key) =>{
-        console.log(key + ' = ' + value)
-      })
-
-
+      roomInfoNow.draftStatus.forEach((value, key) => {
+        console.log(key + " = " + value);
+      });
     }
   });
 

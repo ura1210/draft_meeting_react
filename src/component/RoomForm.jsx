@@ -80,7 +80,7 @@ const RoomForm = (props) => {
           setMsg("既に進行中の部屋IDです。");
           break;
         case 2:
-          setMsg("既に存在する部屋IDです。");
+          setMsg("存在しない部屋IDです。");
           break;
         default:
           setMsg("予期せぬエラーです。");
